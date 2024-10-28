@@ -280,8 +280,8 @@ def neighbor_encoder_c_string(prefix, weight_names, bias_names, m_str):
             input_for_loop = f'''
                 for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
                     neighbor_embeds[i] = 0; 
-                    int norm_index = j+STATE_DIM;
                     for (int j = 0; j < {prefix}_structure[0][0]; j++) {{
+                        int norm_index = j+STATE_DIM;
                         neighbor_embeds[i] += ((neighbor_inputs[j] - mean[norm_index]) / input_std[norm_index]) * actor_encoder_neighbor_embed_layer_0_weight[j][i]; 
                     }}
                     neighbor_embeds[i] += actor_encoder_neighbor_embed_layer_0_bias[i];
@@ -359,8 +359,8 @@ def obstacle_encoder_c_str(prefix, weight_names, bias_names, m_str):
             input_for_loop = f'''
                 for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
                     obstacle_embeds[i] = 0;
-                    int norm_index = j+STATE_DIM+(NEIGHBORS*NBR_OBS_DIM);
                     for (int j = 0; j < {prefix}_structure[0][0]; j++) {{
+                        int norm_index = j+STATE_DIM+(NEIGHBORS*NBR_OBS_DIM);
                         obstacle_embeds[i] += ((obstacle_inputs[j] - mean[norm_index]) / input_std[norm_index]) * {weight_names[0].replace('.', '_')}[j][i];
                     }}
                     obstacle_embeds[i] += {bias_names[0].replace('.', '_')}[i];
