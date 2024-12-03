@@ -21,12 +21,19 @@ import copy
 
 import numpy as np
 from gymnasium.utils import seeding
+from gymnasium import spaces
 
 import gym_art.quadrotor_multi.get_state as get_state
 import gym_art.quadrotor_multi.quadrotor_randomization as quad_rand
-from gym_art.quadrotor_multi.quadrotor_control import *
+from gym_art.quadrotor_multi.control.sbc_control import MellingerController
+from gym_art.quadrotor_multi.quad_utils import *
 from gym_art.quadrotor_multi.quadrotor_dynamics import QuadrotorDynamics
 from gym_art.quadrotor_multi.sensor_noise import SensorNoise
+from gym_art.quadrotor_multi.control.vertical_control import VerticalControl
+from gym_art.quadrotor_multi.control.vertical_plane_control import VertPlaneControl
+from gym_art.quadrotor_multi.control.raw_control import RawControl
+from gym_art.quadrotor_multi.control.collective_thrust_body_rate import CollectiveThrustBodyRate
+
 from scipy.spatial.transform import Rotation as scipy_rotation
 
 GRAV = 9.81  # default gravitational constant
@@ -34,16 +41,32 @@ GRAV = 9.81  # default gravitational constant
 
 # reasonable reward function for hovering at a goal and not flying too high
 def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, action_prev, on_floor=False,
-                            obs_rel_rot=False, base_rot=np.eye(3), dynamic_goal=False):
-    
+                            obs_rel_rot=False, base_rot=np.eye(3), dynamic_goal=False, sbc_info=None):
+
+    if sbc_info is not None:
+        # sbc acc
+        # acc_rl = np.array(dynamics.acc)
+        # acc_sbc = sbc_info['acc']
+        thrusts_sbc = sbc_info['thrusts']
+        cost_sbc_acc_raw = np.linalg.norm(np.array(thrusts_sbc) - np.array(action))
+
+        # sbc boundary
+        cost_sbc_boundary_raw = sbc_info['distance_to_boundary']
+    else:
+        cost_sbc_acc_raw = 0.0
+        cost_sbc_boundary_raw = 0.0
+
+    cost_sbc_acc = rew_coeff["sbc_acc"] * cost_sbc_acc_raw
+    cost_sbc_boundary = rew_coeff["sbc_boundary"] * cost_sbc_boundary_raw
+
     # Distance to the goal
     dist = np.linalg.norm(goal[:3] - dynamics.pos)
-    cost_pos_raw = dist
-    cost_pos = rew_coeff["pos"] * cost_pos_raw
+    if dist >= 0.2:
+        cost_pos_raw = dist
+    else:
+        cost_pos_raw = 0.2 * (2 - np.exp(-8 * (dist - 0.2)))
 
-    # Double the pos penality during the last second of episode
-    if (time_remain < 1):
-        cost_pos = 2.0 * cost_pos
+    cost_pos = rew_coeff["pos"] * cost_pos_raw
 
     cost_effort_raw = np.linalg.norm(action)
     cost_effort = rew_coeff["effort"] * cost_effort_raw
@@ -81,22 +104,27 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
             cost_orient_raw = -dynamics.rot[2, 2]
     cost_orient = rew_coeff["orient"] * cost_orient_raw
 
-    # Loss for constant uncontrolled rotation around vertical axis
-    cost_spin_raw = (dynamics.omega[0] ** 2 + dynamics.omega[1] ** 2 + dynamics.omega[2] ** 2) ** 0.5
-    cost_spin = rew_coeff["spin"] * cost_spin_raw
-
     if dynamic_goal:
         # Goal is given as omega in roll, pitch, yaw axis
         cost_omega_raw = abs(dynamics.omega[0] - goal[9]) + abs(dynamics.omega[1]  - goal[10]) + abs(dynamics.omega[2] - goal[11])
         cost_omega = rew_coeff["omega"] * cost_omega_raw
-    else:
-        cost_omega = 0
-        
-    if dynamic_goal:
+
         cost_vel_raw = abs(dynamics.vel[0] - goal[3]) + abs(dynamics.vel[1] - goal[4]) + abs(dynamics.vel[2] - goal[5])
         cost_vel = rew_coeff["vel"] * cost_vel_raw
+
+        # Loss for constant uncontrolled rotation around vertical axis
+        cost_spin_raw = (dynamics.omega[0] ** 2 + dynamics.omega[1] ** 2 + dynamics.omega[2] ** 2) ** 0.5
+        cost_spin = rew_coeff["spin"] * cost_spin_raw
     else:
+        cost_omega_raw = 0
+        cost_omega = 0
+
+        cost_vel_raw = 0
         cost_vel = 0
+
+        # Loss for constant uncontrolled rotation around vertical axis
+        cost_spin_raw = (dynamics.omega[0] ** 2 + dynamics.omega[1] ** 2 + dynamics.omega[2] ** 2) ** 0.5
+        cost_spin = rew_coeff["spin"] * cost_spin_raw
 
     # Loss crash for staying on the floor
     cost_crash_raw = float(on_floor)
@@ -120,6 +148,8 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
         cost_orient,
         cost_spin,
         cost_low_height,
+        cost_sbc_acc,
+        cost_sbc_boundary
     ])
 
     rew_info = {
@@ -132,14 +162,20 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
         "rew_orient": -cost_orient,
         "rew_spin": -cost_spin,
         "rew_lowh": -cost_low_height,
+        'rew_sbc_acc': -cost_sbc_acc,
+        'rew_sbc_boundary': -cost_sbc_boundary,
 
         "rewraw_main": -cost_pos_raw,
         'rewraw_pos': -cost_pos_raw,
+        'rewraw_vel': -cost_vel_raw,
+        'rewraw_omega': -cost_omega_raw,
         'rewraw_action': -cost_effort_raw,
         'rewraw_crash': -cost_crash_raw,
         "rewraw_orient": -cost_orient_raw,
         "rewraw_spin": -cost_spin_raw,
         "rewraw_lowh": -cost_low_height_raw,
+        'rewraw_sbc_acc': -cost_sbc_acc_raw,
+        'rewraw_sbc_boundary': -cost_sbc_boundary_raw
     }
 
     for k, v in rew_info.items():
@@ -157,15 +193,21 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
 # size of the env and init state distribution are not the same ! It is done for the reason of having static (and
 # preferably short) episode length, since for some distance it would be impossible to reach the goal
 class QuadrotorSingle:
-    def __init__(self, dynamics_params="DefaultQuad", dynamics_change=None,
-                 dynamics_randomize_every=None, dyn_sampler_1=None, dyn_sampler_2=None,
-                 raw_control=True, raw_control_zero_middle=True, dim_mode='3D', tf_control=False, sim_freq=200.,
-                 sim_steps=2, obs_repr="xyz_vxyz_R_omega", ep_time=7, room_dims=(10.0, 10.0, 10.0),
-                 init_random_state=False, sense_noise=None, verbose=False, gravity=GRAV,
-                 t2w_std=0.005, t2t_std=0.0005, excite=False, dynamics_simplification=False, use_numba=False,
-                 neighbor_obs_type='none', num_agents=1, num_use_neighbor_obs=0, use_obstacles=False,
-                 obst_obs_type='none', obs_rel_rot=False, obst_tof_resolution=4, obst_spawn_area=[15.0, 8.0],
-                 dynamic_goal=False, use_ctbr=False):
+    def __init__(
+            # Quad Parameters
+            self, dynamics_params="DefaultQuad", dynamics_change=None, dynamics_randomize_every=None,
+            dyn_sampler_1=None, dyn_sampler_2=None, raw_control=True, raw_control_zero_middle=True, sense_noise=None,
+            init_random_state=False, obs_repr="xyz_vxyz_R_omega", ep_time=15, room_dims=(10.0, 10.0, 10.0), use_numba=False, obs_rel_rot=False,
+            dynamic_goal=False,
+            verbose=False, gravity=GRAV, dim_mode='3D', tf_control=False, sim_freq=200, sim_steps=2,
+            t2w_std=0.005, t2t_std=0.0005, excite=False, dynamics_simplification=False,
+            # Neighbor
+            num_agents=8, neighbor_obs_type='none', num_use_neighbor_obs=0,
+            # Obstacle
+            use_obstacles=False, obst_obs_type='none', obst_tof_resolution=4, obst_spawn_area=None, obst_num=0,
+            critic_rnn_size=-1, obst_critic_obs='ToFs',
+            # Controller
+            use_ctbr=False, use_sbc=False, sbc_obst_agg=0.2):
         np.seterr(under='ignore')
         """
         Args:
@@ -199,6 +241,9 @@ class QuadrotorSingle:
                 are loaded. Otherwise one can provide specific params.
             excite: [bool] change the set point at the fixed frequency to perturb the quad
         """
+        # Preset
+        self.critic_rnn_size = critic_rnn_size
+        self.obst_critic_obs = obst_critic_obs
         # Numba Speed Up
         self.use_numba = use_numba
         self.obs_rel_rot = obs_rel_rot
@@ -299,7 +344,15 @@ class QuadrotorSingle:
 
         # Make observation space
         self.observation_space = self.make_observation_space()
-        
+
+        # Aux
+        self.use_sbc = use_sbc
+        if use_sbc:
+            self.sbc_controller = MellingerController(
+                dynamics=self.dynamics, room_box=self.room_box, num_agents=num_agents, num_obstacles=obst_num,
+                sbc_obst_agg=sbc_obst_agg
+            )
+
         self._seed()
 
 
@@ -398,6 +451,13 @@ class QuadrotorSingle:
                 else:
                     obs_comps = obs_comps + ["ToFs_8"]
 
+        obst_obs_diff_ac = (self.obst_obs_type != self.obst_critic_obs)
+        if self.critic_rnn_size > 0 and obst_obs_diff_ac:
+            if self.obst_critic_obs == 'octomap':
+                obs_comps = obs_comps + ["octomap"]
+            else:
+                raise ValueError("ERROR: QuadEnv: unknown critic observation type: " + self.obst_critic_obs)
+
         print("Observation components:", obs_comps)
         obs_low, obs_high = [], []
         for comp in obs_comps:
@@ -421,17 +481,38 @@ class QuadrotorSingle:
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def _step(self, action):
+    def _step(self, action, sbc_data):
+        if sbc_data is not None:
+            tmp_dynamics = copy.deepcopy(self.dynamics)
+        else:
+            tmp_dynamics = None
+
         self.actions[1] = copy.deepcopy(self.actions[0])
         self.actions[0] = copy.deepcopy(action)
 
         self.controller.step_func(dynamics=self.dynamics, action=action, goal=self.goal, dt=self.dt, observation=None)
 
         self.time_remain = self.ep_len - self.tick
+
+        if sbc_data is not None:
+            sbc_thrusts, acc_sbc, sbc_distance_to_boundary, no_sol_flag = self.sbc_controller.step_func(
+                dynamics=tmp_dynamics, dt=self.dt, acc_des=self.dynamics.acc, observation=sbc_data
+            )
+            sbc_info = {
+                'acc': acc_sbc,
+                'distance_to_boundary': sbc_distance_to_boundary,
+                'thrusts': sbc_thrusts
+            }
+        else:
+            sbc_info=None
+            no_sol_flag = False
+
         reward, rew_info = compute_reward_weighted(
             dynamics=self.dynamics, goal=self.goal, action=action, dt=self.dt, time_remain=self.time_remain,
             rew_coeff=self.rew_coeff, action_prev=self.actions[1], on_floor=self.dynamics.on_floor,
-            obs_rel_rot=self.obs_rel_rot, base_rot=self.base_rot, dynamic_goal=self.dynamic_goal)
+            obs_rel_rot=self.obs_rel_rot, base_rot=self.base_rot, dynamic_goal=self.dynamic_goal,
+            sbc_info=sbc_info
+        )
 
         self.tick += 1
         done = self.tick > self.ep_len
@@ -439,7 +520,7 @@ class QuadrotorSingle:
         sv = self.state_vector(self)
         self.traj_count += int(done)
 
-        return sv, reward, done, {'rewards': rew_info}
+        return sv, reward, done, {'rewards': rew_info, 'no_sol_flag': no_sol_flag}
 
     def resample_dynamics(self):
         """
@@ -473,6 +554,8 @@ class QuadrotorSingle:
         # DYNAMICS RANDOMIZATION AND UPDATE
         if self.dynamics_randomize_every is not None and (self.traj_count + 1) % self.dynamics_randomize_every == 0:
             self.resample_dynamics()
+        if self.use_sbc:
+            self.sbc_controller.reset()
 
         if self.box < 10:
             self.box = self.box * self.box_scale
@@ -538,5 +621,5 @@ class QuadrotorSingle:
         """This class is only meant to be used as a component of QuadMultiEnv."""
         raise NotImplementedError()
 
-    def step(self, action):
-        return self._step(action)
+    def step(self, action, sbc_data):
+        return self._step(action, sbc_data)

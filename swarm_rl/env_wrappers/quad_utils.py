@@ -54,7 +54,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         obst_noise=cfg.quads_obst_noise, grid_size=quads_obst_grid_size,
         obst_tof_resolution=cfg.quads_obstacle_tof_resolution, obst_spawn_center=cfg.quads_obst_spawn_center,
         obst_grid_size_random=cfg.quads_obst_grid_size_random, obst_grid_size_range=cfg.quads_obst_grid_size_range,
-
+        critic_rnn_size=cfg.quads_critic_rnn_size, obst_critic_obs=cfg.quads_critic_obs,
         # Aerodynamics
         use_downwash=cfg.quads_use_downwash, z_overlap=cfg.quads_z_overlap,
         # Numba Speed Up
@@ -70,17 +70,28 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         # Quadrotor Specific (Do Not Change)
         dynamics_params=quad, raw_control=raw_control, raw_control_zero_middle=raw_control_zero_middle,
         dynamics_randomize_every=dyn_randomize_every, dynamics_change=dynamics_change, dyn_sampler_1=sampler_1,
-        sense_noise=sense_noise, init_random_state=True,
+        sense_noise=sense_noise, init_random_state=False,
         # Rendering
         render_mode=cfg.quads_render_mode,
+        # SBC
+        enable_sbc=cfg.quads_enable_sbc, sbc_neighbor_range=cfg.quads_neighbor_range, sbc_obst_range=cfg.quads_obst_range,
+        sbc_obst_agg=cfg.quads_sbc_obst_agg,
+        # Randomization
+        obst_density_random=cfg.quads_obst_density_random, obst_density_min=cfg.quads_obst_density_min,
+        obst_density_max=cfg.quads_obst_density_max, obst_size_random=cfg.quads_obst_size_random,
+        obst_size_min=cfg.quads_obst_size_min, obst_size_max=cfg.quads_obst_size_max
     )
 
     if use_replay_buffer:
-        env = ExperienceReplayWrapper(env, cfg.replay_buffer_sample_prob, cfg.quads_obst_density, cfg.quads_obst_size,
-                                      cfg.quads_domain_random, cfg.quads_obst_density_random, cfg.quads_obst_size_random,
-                                      cfg.quads_obst_density_min, cfg.quads_obst_density_max, cfg.quads_obst_size_min, cfg.quads_obst_size_max)
+        env = ExperienceReplayWrapper(env=env, replay_buffer_sample_prob=cfg.replay_buffer_sample_prob)
 
     reward_shaping = copy.deepcopy(DEFAULT_QUAD_REWARD_SHAPING)
+
+    reward_shaping['quad_rewards']['omega'] = cfg.quads_coeff_omega
+    reward_shaping['quad_rewards']['spin'] = cfg.quads_coeff_spin
+    reward_shaping['quad_rewards']['effort'] = cfg.quads_coeff_effort
+    reward_shaping['quad_rewards']['sbc_acc'] = cfg.quads_coeff_sbc_acc
+    reward_shaping['quad_rewards']['sbc_boundary'] = cfg.quads_coeff_sbc_boundary
 
     reward_shaping['quad_rewards']['quadcol_bin'] = cfg.quads_collision_reward
     reward_shaping['quad_rewards']['quadcol_bin_smooth_max'] = cfg.quads_collision_smooth_max_penalty

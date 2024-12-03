@@ -74,11 +74,10 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--quads_obst_grid_size_range', nargs='+', default=[0.5, 0.8], type=float,
                    help='Spawn range of grid size')
 
-    p.add_argument('--quads_domain_random', default=False, type=str2bool, help='Use domain randomization or not')
     p.add_argument('--quads_obst_density_random', default=False, type=str2bool, help='Enable obstacle density randomization or not')
-    p.add_argument('--quads_obst_density_min', default=0.05, type=float,
+    p.add_argument('--quads_obst_density_min', default=0.2, type=float,
                    help='The minimum of obstacle density when enabling domain randomization')
-    p.add_argument('--quads_obst_density_max', default=0.2, type=float,
+    p.add_argument('--quads_obst_density_max', default=0.8, type=float,
                    help='The maximum of obstacle density when enabling domain randomization')
     p.add_argument('--quads_obst_size_random', default=False, type=str2bool, help='Enable obstacle size randomization or not')
     p.add_argument('--quads_obst_size_min', default=0.3, type=float,
@@ -114,12 +113,14 @@ def add_quadrotors_env_args(env, parser):
 
     # Scenarios
     p.add_argument('--quads_mode', default='static_same_goal', type=str,
-                   choices=['static_same_goal', 'static_diff_goal', 'dynamic_same_goal', 'dynamic_diff_goal',
-                            'ep_lissajous3D', 'ep_rand_bezier', 'swarm_vs_swarm', 'swap_goals', 'dynamic_formations',
-                            'mix', 'o_uniform_same_goal_spawn', 'o_random',
-                            'o_dynamic_diff_goal', 'o_dynamic_same_goal', 'o_diagonal', 'o_static_same_goal',
-                            'o_static_diff_goal', 'o_swap_goals', 'o_ep_rand_bezier', 'o_random_dynamic_goal',
-                            'o_random_dynamic_goal_curriculum', 'sim2real_A', 'sim2real_B'],
+                   choices=[
+                       'static_same_goal', 'static_diff_goal', 'dynamic_same_goal', 'dynamic_diff_goal',
+                       'ep_lissajous3D', 'ep_rand_bezier', 'swarm_vs_swarm', 'swap_goals', 'dynamic_formations',
+                       'mix', 'o_uniform_same_goal_spawn', 'o_random', 'o_dynamic_diff_goal', 'o_dynamic_same_goal',
+                       'o_diagonal', 'o_static_same_goal', 'o_static_diff_goal', 'o_swap_goals', 'o_ep_rand_bezier',
+                       'o_random_dynamic_goal', 'o_random_dynamic_goal_curriculum',
+                       'sim2real_A', 'sim2real_B'
+                   ],
                    help='Choose which scenario to run. ep = evader pursuit')
 
     # Room
@@ -146,3 +147,19 @@ def add_quadrotors_env_args(env, parser):
 
     # Sim2Real
     p.add_argument('--quads_sim2real', default=False, type=str2bool, help='Whether to use sim2real or not')
+
+    # Enable sbc
+    p.add_argument('--quads_enable_sbc', default=True, type=str2bool, help='Whether to use sbc or not')
+    p.add_argument('--quads_neighbor_range', default=2.0, type=float, help='Consider other drones in this range')
+    p.add_argument('--quads_obst_range', default=2.0, type=float, help='Consider obstacles in this range')
+    p.add_argument('--quads_sbc_obst_agg', default=0.2, type=float, help='sbc obst aggressive')
+
+    p.add_argument('--quads_coeff_effort', default=0.05, type=float, help='Reward coeff of actions')
+    p.add_argument('--quads_coeff_omega', default=0.0, type=float, help='Reward coeff of rel omega')
+    p.add_argument('--quads_coeff_spin', default=0.0, type=float, help='Reward coeff of abs omega')
+    p.add_argument('--quads_coeff_sbc_acc', default=0.0, type=float, help='Reward coeff of rl_acc and sbc_acc')
+    p.add_argument('--quads_coeff_sbc_boundary', default=0.0, type=float, help='Reward coeff of sbc_boundary')
+
+    # Critic
+    p.add_argument('--quads_critic_rnn_size', default=-1, type=int, help='We have critic, which is different from actor')
+    p.add_argument('--quads_critic_obs', default='octomap', type=str, choices=['octomap', 'ToFs'], help='Critic observations')

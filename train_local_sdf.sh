@@ -12,9 +12,9 @@ python -m swarm_rl.train \
 --quads_collision_falloff_radius=4.0 --quads_collision_reward=5.0 --quads_collision_smooth_max_penalty=10.0 \
 --quads_neighbor_encoder_type=no_encoder --quads_neighbor_visible_num=2 \
 --quads_use_obstacles=True --quads_obst_density=0.2 --quads_obst_size=0.3 \
---quads_obst_collision_reward=5.0 --quads_obstacle_obs_type=ToFs --quads_obst_hidden_size=16 \
+--quads_obst_collision_reward=5.0 --quads_obstacle_obs_type=octomap --quads_obst_hidden_size=16 \
 --quads_obstacle_tof_resolution=8 \
 --seed=5678 --quads_room_dims 8.0 8.0 5.0 --quads_obst_spawn_area 4 4 --quads_obst_grid_size=0.7 \
 --quads_obst_spawn_center=False --quads_obst_collision_prox_weight=0.01 --quads_obst_collision_prox_min=0.05 \
 --quads_obst_collision_prox_max=0.5 --quads_dynamic_goal=True \
---with_wandb=False --experiment=test_local
+--with_wandb=False --experiment=test_local_sdf
