@@ -42,7 +42,7 @@ def main():
     elif args.model_type == 'multi_deepset':
         compare_torch_to_c_model_multi_drone_deepset(args=args)
     elif args.model_type == 'multi_obst_attention':
-        compare_torch_to_c_model_multi_drone_attention()
+        compare_torch_to_c_model_multi_drone_attention(args=args)
     else:
         raise NotImplementedError(f'Model type {args.model_type} is not supported')
 

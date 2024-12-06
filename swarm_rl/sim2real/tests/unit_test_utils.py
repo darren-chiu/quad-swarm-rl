@@ -17,7 +17,6 @@ def compare_torch_to_c_model_outputs_single_drone(args):
                           os.path.isdir(os.path.join(parent_model_dir, name))]
     for i in range(len(sub_model_dir_list)):
         model_dir = parent_model_dir.joinpath(sub_model_dir_list[i])
-
         models, c_model_names, cfg = load_sf_model(model_dir, model_type=args.model_type)
 
         # Get a random observation
@@ -181,73 +180,95 @@ def compare_torch_to_c_model_multi_drone_deepset(args):
                 assert np.allclose(torch_thrust_out, thrust_out, atol=1e-6)
 
 
-def compare_torch_to_c_model_multi_drone_attention():
-    project_root = Path.home().joinpath('quad-swarm-rl')
-    os.chdir(str(project_root))
+def compare_torch_to_c_model_multi_drone_attention(args):
+    parent_model_dir = Path(args.torch_model_dir)
+    sub_model_dir_list = [name for name in os.listdir(parent_model_dir) if
+                          os.path.isdir(os.path.join(parent_model_dir, name))]
+    for i in range(len(sub_model_dir_list)):
+        print(sub_model_dir_list)
+        model_dir = parent_model_dir.joinpath(sub_model_dir_list[i])
+        print(model_dir)
+        models, c_model_names, cfg = load_sf_model(model_dir, model_type=args.model_type)
+        print(c_model_names)
+        for torch_model, c_model_name in zip(models, c_model_names):
+            
+            c_base_name, c_extension = os.path.splitext(args.output_model_name)
+            final_c_model_name = f'{c_base_name}_{c_model_name}{c_extension}'
+            c_model_dir = Path(args.output_dir).joinpath(args.model_type, model_dir.parts[1], model_dir.parts[2])
+            c_model_path = c_model_dir.joinpath(final_c_model_name)
+            shared_lib_path = c_model_dir.joinpath(f'network_evaluate_{c_model_name}.so')
 
-    # prepare the c model and main method for evaluation
-    c_model_dir = Path('swarm_rl/sim2real/c_models/attention')
-    c_model_path = c_model_dir.joinpath('model.c')
-    shared_lib_path = c_model_dir.joinpath('multi_attn.so')
-    subprocess.run(
-        ['g++', '-fPIC', '-shared', '-o', str(shared_lib_path), str(c_model_path)],
-        check=True,
-        stderr=subprocess.PIPE,
-        stdout=subprocess.PIPE
-    )
+            subprocess.run(
+                ['g++', '-fPIC', '-shared', '-o', str(shared_lib_path), str(c_model_path)],
+                check=True,
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE
+            )
+            # prepare the c model and main method for evaluation
+            # c_model_dir = Path('swarm_rl/train_dir/c_models/multi_obst_attn/debug_experience_replay_v2_slurm/02_debug_experience_replay_v2_see_6666_q.c.obs_octomap')
+            # c_model_path = c_model_dir.joinpath('network_evaluate_step_1770360832.c')
+            # shared_lib_path = c_model_dir.joinpath('02_debug_experience_replay_v2_see_6666_q.c.obs_octomap.so')
+            # subprocess.run(
+            #     ['g++', '-fPIC', '-shared', '-o', str(shared_lib_path), str(c_model_path)],
+            #     check=True,
+            #     stderr=subprocess.PIPE,
+            #     stdout=subprocess.PIPE
+            # )
 
-    import ctypes
-    from numpy.ctypeslib import ndpointer
-    lib = ctypes.cdll.LoadLibrary(str(shared_lib_path))
-    func = lib.main
-    func.restype = None
-    func.argtypes = [
-        ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
-        ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
-        ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
-        ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
-        ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
-        ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
-        ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
-        ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
-    ]
+            import ctypes
+            from numpy.ctypeslib import ndpointer
+            lib = ctypes.cdll.LoadLibrary(str(shared_lib_path))
+            func = lib.main
+            func.restype = None
+            func.argtypes = [
+                ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+                ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+                ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+                ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+                ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+                ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+                ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+                ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+            ]
 
-    torch_model_dir = 'swarm_rl/sim2real/torch_models/attention/'
-    model, cfg = load_sf_model(Path(torch_model_dir), model_type='attention')
+    # torch_model_dir = 'swarm_rl/sim2real/torch_models/attention/'
+    # model, cfg = load_sf_model(Path(torch_model_dir), model_type='attention')
 
     # test 1000 times on different random inputs
-    for _ in range(1000):
-        # check the neighbor encoder outputs
-        neighbor_obs = torch.randn(36)
-        torch_nbr_out = model.actor_encoder.neighbor_embed_layer(neighbor_obs).detach().numpy()
-        nbr_indata = neighbor_obs.detach().numpy()
-        nbr_outdata = np.zeros(16).astype(np.float32)
+            for _ in range(1000):
+                # check the neighbor encoder outputs
+                neighbor_obs = torch.randn(12)
+                torch_nbr_out = torch_model.actor_encoder.neighbor_embed_layer(neighbor_obs).detach().numpy()
+                nbr_indata = neighbor_obs.detach().numpy()
+                nbr_outdata = np.zeros(16).astype(np.float32)
 
-        # check the obstacle encoder outputs
-        obstacle_obs = torch.rand(9)
-        torch_obstacle_out = model.actor_encoder.obstacle_embed_layer(obstacle_obs).detach().numpy()
-        obst_indata = obstacle_obs.detach().numpy()
-        obst_outdata = np.zeros(16).astype(np.float32)  # TODO: make this cfg.rnn_size instead of hardcoded
+                # check the obstacle encoder outputs
+                obstacle_obs = torch.rand(32)
+                torch_obstacle_out = torch_model.actor_encoder.obstacle_embed_layer(obstacle_obs).detach().numpy()
+                obst_indata = obstacle_obs.detach().numpy()
+                obst_outdata = np.zeros(16).astype(np.float32)  # TODO: make this cfg.rnn_size instead of hardcoded
 
-        # check attention layer
-        attn_input = torch.from_numpy(np.vstack((torch_nbr_out, torch_obstacle_out)))
-        torch_attn_output, _ = model.actor_encoder.attention_layer(attn_input, attn_input, attn_input)
-        # torch_attn_output = model.actor_encoder.attention_layer.softmax_out.detach().numpy()
-        torch_attn_output = torch_attn_output.detach().numpy()
-        token1_out = np.zeros(16).astype(np.float32)
-        token2_out = np.zeros(16).astype(np.float32)
+                # check attention layer
+                attn_input = torch.from_numpy(np.vstack((torch_nbr_out, torch_obstacle_out)))
+                torch_attn_output, _ = torch_model.actor_encoder.attention_layer(attn_input, attn_input, attn_input)
+                # torch_attn_output = torch_model.actor_encoder.attention_layer.softmax_out.detach().numpy()
+                torch_attn_output = torch_attn_output.detach().numpy()
+                token1_out = np.zeros(16).astype(np.float32)
+                token2_out = np.zeros(16).astype(np.float32)
 
-        self_obs = torch.randn(19)
-        self_indata = self_obs.detach().numpy()
-        obs_dict = {'obs': torch.concat([self_obs, neighbor_obs, obstacle_obs]).view(1, -1)}
-        torch_thrust_out = model.action_parameterization(model.actor_encoder(obs_dict))[
-            1].means.flatten().detach().numpy()
-        thrust_out = np.zeros(4).astype(np.float32)
+                self_obs = torch.randn(18)
+                self_indata = self_obs.detach().numpy()
+                obs_dict = {'obs': torch.concat([self_obs, neighbor_obs, obstacle_obs]).view(1, -1)}
+                torch_thrust_out = torch_model.action_parameterization(torch_model.actor_encoder(obs_dict))[
+                    1].means.flatten().detach().numpy()
+                thrust_out = np.zeros(4).astype(np.float32)
 
-        func(self_indata, nbr_indata, obst_indata, nbr_outdata, obst_outdata, token1_out, token2_out, thrust_out)
+                func(self_indata, nbr_indata, obst_indata, nbr_outdata, obst_outdata, token1_out, token2_out, thrust_out)
 
-        tokens = np.vstack((token1_out, token2_out))
-        assert np.allclose(torch_obstacle_out, obst_outdata, atol=1e-6)
-        assert np.allclose(torch_nbr_out, nbr_outdata, atol=1e-6)
-        assert np.allclose(torch_attn_output, tokens, atol=1e-6)
-        assert np.allclose(torch_thrust_out, thrust_out, atol=1e-6)
+                tokens = np.vstack((token1_out, token2_out))
+                print(torch_obstacle_out, obst_outdata)
+                tolerance = 1e-6
+                assert np.allclose(torch_obstacle_out, obst_outdata, atol=tolerance)
+                assert np.allclose(torch_nbr_out, nbr_outdata, atol=tolerance)
+                assert np.allclose(torch_attn_output, tokens, atol=tolerance)
+                assert np.allclose(torch_thrust_out, thrust_out, atol=tolerance)
