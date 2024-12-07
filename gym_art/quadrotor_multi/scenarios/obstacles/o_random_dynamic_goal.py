@@ -48,32 +48,38 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         return
 
     def reset(self, obst_map=None, cell_centers=None, sim2real_scenario=False):
-        # 0: Use different goal; 1: Use same goal
-        self.goal_scenario_flag = np.random.choice([0, 1])
-        # self.goal_scenario_flag = 1
-        # 0: From -x to x; 1: From x to -x
-        pos_area_flag = np.random.choice([0, 1])
+        if sim2real_scenario is None:
+            # 0: Use different goal; 1: Use same goal
+            self.goal_scenario_flag = np.random.choice([0, 1])
+            # self.goal_scenario_flag = 1
+            # 0: From -x to x; 1: From x to -x
+            pos_area_flag = np.random.choice([0, 1])
 
-        # Find the goal point for all drones
-        if self.goal_scenario_flag:
-            # Same goal scenario
-            formation_id = np.random.choice([0, len(self.formation_list) - 1])
-            formation = self.formation_list[formation_id]
+            # Find the goal point for all drones
+            if self.goal_scenario_flag:
+                # Same goal scenario
+                formation_id = np.random.choice([0, len(self.formation_list) - 1])
+                formation = self.formation_list[formation_id]
+            else:
+                formation = None
+
+            self.in_obst_area = np.random.choice([0, 1])
+            if self.in_obst_area:
+                self.start_point, self.global_final_goals = self.generate_start_goal_pos_v2(
+                    pos_area_flag=pos_area_flag, goal_scenario_flag=self.goal_scenario_flag, formation=formation,
+                    num_agents=self.num_agents
+                )
+            else:
+                self.start_point, self.global_final_goals = self.generate_start_goal_pos(
+                    pos_area_flag=pos_area_flag, goal_scenario_flag=self.goal_scenario_flag, formation=formation,
+                    num_agents=self.num_agents
+                )
         else:
-            formation = None
-
-        self.in_obst_area = np.random.choice([0, 1])
-        if self.in_obst_area:
-            self.start_point, self.global_final_goals = self.generate_start_goal_pos_v2(
-                pos_area_flag=pos_area_flag, goal_scenario_flag=self.goal_scenario_flag, formation=formation,
-                num_agents=self.num_agents
-            )
-        else:
-            self.start_point, self.global_final_goals = self.generate_start_goal_pos(
-                pos_area_flag=pos_area_flag, goal_scenario_flag=self.goal_scenario_flag, formation=formation,
-                num_agents=self.num_agents
-            )
-
+            beginning_line = -2
+            self.start_point = np.array([[-2,beginning_line,0.65], [0,beginning_line,0.65], [2,beginning_line,0.65]])
+            self.global_final_goals = np.array([[-2, 2, 0.65], [0, 2, 0.65], [2, 2, 0.65]])
+            
+        
         for i in range(self.num_agents):
             initial_state = traj_eval()
             initial_state.set_initial_pos(self.start_point[i])

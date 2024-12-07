@@ -34,7 +34,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
     use_replay_buffer = cfg.replay_buffer_sample_prob > 0.0
     if cfg.quads_mode == "sim2real_A" or cfg.quads_mode == "sim2real_B":
         sim2real_scenario = cfg.quads_mode[-1]
-        quads_mode = "o_random"
+        quads_mode = "o_random_dynamic_goal"
         quads_obst_grid_size = 0.5
     else:
         sim2real_scenario = None

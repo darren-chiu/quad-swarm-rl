@@ -456,10 +456,10 @@ class QuadrotorEnvMulti(gym.Env):
 
             self.obst_map, self.obst_pos_arr, cell_centers = self.obst_generation_given_density()
             if self.sim2real_scenario is not None:
-                self.obst_map = np.zeros_like(self.obst_map)
-                self.obst_map[7, 10] = 1.0
+                self.obst_map = np.zeros([12,12])
+                self.obst_map[0, 0] = 1.0
                 self.obst_map[5, 11] = 1.0
-                self.obst_pos_arr = [[1.25, 0.25, 2.5], [1.75, 1.25, 2.5]]
+                self.obst_pos_arr = [[-2, 0.0, 2.5], [0, 0, 2.5], [2, 0, 2.5]]
 
             self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers, sim2real_scenario=self.sim2real_scenario)
         else:

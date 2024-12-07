@@ -61,7 +61,6 @@ class MultiObstacles:
             obs = np.concatenate((obs, quads_sdf_obs, quads_obs_critic), axis=1)
         else:
             obs = np.concatenate((obs, quads_sdf_obs), axis=1)
-
         return obs
 
     def step(self, obs, quads_pos, quads_rots=None):

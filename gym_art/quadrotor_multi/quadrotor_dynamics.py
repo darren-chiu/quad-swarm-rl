@@ -532,7 +532,6 @@ class QuadrotorDynamics:
         self.vel, self.accelerometer = compute_velocity_and_acceleration(vel=self.vel, vel_damp=self.vel_damp, dt=dt,
                                                                          rot_tpose=self.rot.T, grav_arr=grav_arr,
                                                                          acc=self.acc)
-
     def reset(self):
         self.thrust_cmds_damp = np.zeros([4])
         self.thrust_rot_damp = np.zeros([4])

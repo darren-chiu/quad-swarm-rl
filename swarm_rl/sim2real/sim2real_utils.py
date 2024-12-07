@@ -29,7 +29,7 @@ def load_sf_model(model_dir, model_type):
 
     # Manually set some values
     args.visualize_v_value = False
-    args.quads_encoder_type = 'attention' if (model_type == 'attention' or model_type == 'multi_obst_attn') else 'corl'
+    args.quads_encoder_type = 'attention' if (model_type == 'attention' or model_type == 'multi_obst_attn' or model_type == 'multi_obst_attention') else 'corl'
     args.quads_sim2real = True
     args.quads_use_ctbr = False
     args.quads_obst_density_random = False

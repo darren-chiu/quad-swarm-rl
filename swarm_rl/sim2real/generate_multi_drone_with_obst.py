@@ -261,7 +261,7 @@ def self_encoder_attn_c_str(prefix, weight_names, bias_names, m_str):
 
 
 def neighbor_encoder_c_string(prefix, weight_names, bias_names, m_str):
-    method = """void neighborEmbedder(volatile float neighbor_inputs[NEIGHBORS * NBR_OBS_DIM]) {
+    method = """void neighborEmbedder(const float neighbor_inputs[NEIGHBORS * NBR_OBS_DIM]) {
         """
     num_layers = len(weight_names)
     for_loops = []
@@ -339,7 +339,7 @@ def neighbor_encoder_c_string(prefix, weight_names, bias_names, m_str):
 
 
 def obstacle_encoder_c_str(prefix, weight_names, bias_names, m_str):
-    method = f"""void obstacleEmbedder(volatile float obstacle_inputs[OBST_DIM]) {{
+    method = f"""void obstacleEmbedder(const float obstacle_inputs[OBST_DIM]) {{
     """
     num_layers = len(weight_names)
     if num_layers == 1:

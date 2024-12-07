@@ -98,11 +98,11 @@ typedef struct control_t_n {
 
 void networkEvaluate(control_t_n* control_n, const float* state_array);
 
-// static const int NEIGHBORS = 2;
-// static const int NBR_OBS_DIM = 6; 
+static const int NEIGHBORS = 2;
+static const int NBR_OBS_DIM = 6; 
  
-// static const int NUM_OBSTACLES = 2; 
-// static const int OBST_DIM = 9;
+static const int STATE_DIM = 18; 
+static const int OBST_DIM = 32;
 
 """
 
@@ -184,13 +184,13 @@ void normalize_state(float *state_array) {
     }
 }
 
-void normalize_neighbor(volatile float *neighbor_inputs) {
+void normalize_neighbor(const float *neighbor_inputs) {
     for (int i = 0; i < OBST_DIM; i++) {
         neighbor_inputs[i] = (neighbor_inputs[i] - mean[i+STATE_DIM]) / ((input_std[i+STATE_DIM]) + EPS);
     }
 }
 
-void normalize_obstacle(volatile float *obstacle_inputs) {
+void normalize_obstacle(const float *obstacle_inputs) {
     for (int i = 0; i < OBST_DIM; i++) {
         obstacle_inputs[i] = (obstacle_inputs[i] - mean[i+STATE_DIM+(NEIGHBORS*NBR_OBS_DIM)]) / ((input_std[i+STATE_DIM+(NEIGHBORS*NBR_OBS_DIM)]) + EPS);
     }
@@ -513,8 +513,8 @@ int main(const float *self_indatav, const float *nbr_indatav, float *obst_indata
     singleHeadAttention();
     
     for (int i = 0; i < D_MODEL; i++) {
-        obst_outdata[i] = obst_output_0[i];
-        nbr_outdata[i] = nbr_output_0[i];  
+        obst_outdata[i] = obstacle_embeds[i];
+        nbr_outdata[i] = neighbor_embeds[i];  
         token1_out[i] = attn_embeds[0][i];
         token2_out[i] = attn_embeds[1][i]; 
     }
