@@ -185,11 +185,10 @@ def compare_torch_to_c_model_multi_drone_attention(args):
     sub_model_dir_list = [name for name in os.listdir(parent_model_dir) if
                           os.path.isdir(os.path.join(parent_model_dir, name))]
     for i in range(len(sub_model_dir_list)):
-        print(sub_model_dir_list)
+
         model_dir = parent_model_dir.joinpath(sub_model_dir_list[i])
-        print(model_dir)
+
         models, c_model_names, cfg = load_sf_model(model_dir, model_type=args.model_type)
-        print(c_model_names)
         for torch_model, c_model_name in zip(models, c_model_names):
             
             c_base_name, c_extension = os.path.splitext(args.output_model_name)
@@ -197,9 +196,11 @@ def compare_torch_to_c_model_multi_drone_attention(args):
             c_model_dir = Path(args.output_dir).joinpath(args.model_type, model_dir.parts[1], model_dir.parts[2])
             c_model_path = c_model_dir.joinpath(final_c_model_name)
             shared_lib_path = c_model_dir.joinpath(f'network_evaluate_{c_model_name}.so')
+            
+            print('Testing: ', c_model_path)
 
             subprocess.run(
-                ['g++', '-fPIC', '-shared', '-o', str(shared_lib_path), str(c_model_path)],
+                ['gcc', '-fPIC', str(c_model_path), '-shared', '-o', str(shared_lib_path)],
                 check=True,
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE
@@ -217,8 +218,9 @@ def compare_torch_to_c_model_multi_drone_attention(args):
 
             import ctypes
             from numpy.ctypeslib import ndpointer
-            lib = ctypes.cdll.LoadLibrary(str(shared_lib_path))
-            func = lib.main
+            # lib = ctypes.cdll.LoadLibrary(str(shared_lib_path))
+            lib = ctypes.CDLL(str(shared_lib_path))
+            func = lib.testNetwork
             func.restype = None
             func.argtypes = [
                 ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
@@ -261,12 +263,14 @@ def compare_torch_to_c_model_multi_drone_attention(args):
                 obs_dict = {'obs': torch.concat([self_obs, neighbor_obs, obstacle_obs]).view(1, -1)}
                 torch_thrust_out = torch_model.action_parameterization(torch_model.actor_encoder(obs_dict))[
                     1].means.flatten().detach().numpy()
+
                 thrust_out = np.zeros(4).astype(np.float32)
 
                 func(self_indata, nbr_indata, obst_indata, nbr_outdata, obst_outdata, token1_out, token2_out, thrust_out)
 
                 tokens = np.vstack((token1_out, token2_out))
-                print(torch_obstacle_out, obst_outdata)
+                print("Neighbor Embedding Output: " , torch_nbr_out, nbr_outdata)
+                print("Thrust Output: ", torch_thrust_out, thrust_out)
                 tolerance = 1e-6
                 assert np.allclose(torch_obstacle_out, obst_outdata, atol=tolerance)
                 assert np.allclose(torch_nbr_out, nbr_outdata, atol=tolerance)
