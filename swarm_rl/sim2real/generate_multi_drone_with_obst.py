@@ -39,11 +39,11 @@ def generate_c_model_attention(model, output_path, output_folder, testing=False)
         structures += structure
 
         if 'self' in enc_name:
-            method = self_encoder_attn_c_str(enc_name, weight_names, bias_names, m_str)
+            method = self_encoder_attn_c_str(enc_name, weight_names, bias_names, m_str, testing)
         elif 'nbr' in enc_name:
-            method = neighbor_encoder_c_string(enc_name, weight_names, bias_names, m_str)
+            method = neighbor_encoder_c_string(enc_name, weight_names, bias_names, m_str, testing)
         elif 'obst' in enc_name:
-            method = obstacle_encoder_c_str(enc_name, weight_names, bias_names, m_str)
+            method = obstacle_encoder_c_str(enc_name, weight_names, bias_names, m_str, testing)
         else:
             # attention
             method = attention_body
@@ -174,12 +174,12 @@ def generate_c_weights_attention(model, transpose=False):
     return info
 
 
-def self_encoder_attn_c_str(prefix, weight_names, bias_names, m_str):
+def self_encoder_attn_c_str(prefix, weight_names, bias_names, m_str, testing):
     method = """void networkEvaluate(struct control_t_n *control_n, float *state_array) {"""
     num_layers = len(weight_names)
     # write the for loops for forward-prop of self embed layer
     for_loops = []
-    if m_str == "": 
+    if m_str == "" or testing: 
         input_for_loop = f'''
             // Self embed layer
             for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
@@ -260,13 +260,14 @@ def self_encoder_attn_c_str(prefix, weight_names, bias_names, m_str):
     return method
 
 
-def neighbor_encoder_c_string(prefix, weight_names, bias_names, m_str):
+def neighbor_encoder_c_string(prefix, weight_names, bias_names, m_str, testing):
     method = """void neighborEmbedder(const float neighbor_inputs[NEIGHBORS * NBR_OBS_DIM]) {
         """
     num_layers = len(weight_names)
     for_loops = []
     if num_layers == 1:
-        if m_str == "":
+        # When running Unit tests, we do not need to normalize
+        if m_str == "" or testing:
             input_for_loop = f'''
                 for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
                     neighbor_embeds[i] = 0; 
@@ -274,6 +275,7 @@ def neighbor_encoder_c_string(prefix, weight_names, bias_names, m_str):
                         neighbor_embeds[i] += neighbor_inputs[j] * actor_encoder_neighbor_embed_layer_0_weight[j][i]; 
                     }}
                     neighbor_embeds[i] += actor_encoder_neighbor_embed_layer_0_bias[i];
+                    neighbor_embeds[i] = tanhf(neighbor_embeds[i]);
                 }}
             '''
         else:
@@ -285,6 +287,7 @@ def neighbor_encoder_c_string(prefix, weight_names, bias_names, m_str):
                         neighbor_embeds[i] += ((neighbor_inputs[j] - mean[norm_index]) / input_std[norm_index]) * actor_encoder_neighbor_embed_layer_0_weight[j][i]; 
                     }}
                     neighbor_embeds[i] += actor_encoder_neighbor_embed_layer_0_bias[i];
+                    neighbor_embeds[i] = tanhf(neighbor_embeds[i]);
                 }}
             '''
         for_loops.append(input_for_loop)
@@ -338,14 +341,13 @@ def neighbor_encoder_c_string(prefix, weight_names, bias_names, m_str):
     return method
 
 
-def obstacle_encoder_c_str(prefix, weight_names, bias_names, m_str):
-    method = f"""void obstacleEmbedder(const float obstacle_inputs[OBST_DIM]) {{
-    """
+def obstacle_encoder_c_str(prefix, weight_names, bias_names, m_str, testing):
+    method = f"""void obstacleEmbedder(const float obstacle_inputs[OBST_DIM]) {{"""
     num_layers = len(weight_names)
     if num_layers == 1:
         # write the for loops for forward-prop
         for_loops = []
-        if m_str == "": 
+        if m_str == "" or testing: 
             input_for_loop = f'''
                 for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
                     obstacle_embeds[i] = 0;
@@ -353,6 +355,7 @@ def obstacle_encoder_c_str(prefix, weight_names, bias_names, m_str):
                         obstacle_embeds[i] += obstacle_inputs[j] * {weight_names[0].replace('.', '_')}[j][i];
                     }}
                     obstacle_embeds[i] += {bias_names[0].replace('.', '_')}[i];
+                    obstacle_embeds[i] = tanhf(obstacle_embeds[i]);
                 }}
             '''
         else:
@@ -364,6 +367,7 @@ def obstacle_encoder_c_str(prefix, weight_names, bias_names, m_str):
                         obstacle_embeds[i] += ((obstacle_inputs[j] - mean[norm_index]) / input_std[norm_index]) * {weight_names[0].replace('.', '_')}[j][i];
                     }}
                     obstacle_embeds[i] += {bias_names[0].replace('.', '_')}[i];
+                    obstacle_embeds[i] = tanhf(obstacle_embeds[i]);
                 }}
             '''
         for_loops.append(input_for_loop)

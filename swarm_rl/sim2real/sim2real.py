@@ -40,7 +40,7 @@ def torch_to_c_model(args=None):
                 generate_c_model_multi_deepset(model, str(output_path), str(output_folder), testing=args.testing, cfg=cfg)
             elif args.model_type == 'single_obst':
                 generate_c_model_single_obst(model, str(output_path), str(output_folder), testing=args.testing)
-            elif args.model_type == 'multi_obst_attn':
+            elif args.model_type == 'multi_obst_attention':
                 generate_c_model_attention(model, str(output_path), str(output_folder), testing=args.testing)
             elif args.model_type == 'multi_obst_deepset':
                 generate_c_model_deepset_obst(model, str(output_path), str(output_folder), testing=args.testing)            
@@ -68,7 +68,7 @@ def parse_args():
                              'to False if you want to output a c model that will be actually used for sim2real')
     parser.add_argument('--model_type', type=str,
                         default='single',
-                        choices=['single', 'single_obst', 'multi_deepset', 'multi_obst_attn', 'multi_obst_deepset'],
+                        choices=['single', 'single_obst', 'multi_deepset', 'multi_obst_attention', 'multi_obst_deepset'],
                         help='What kind of model we are working with. '
                              'single: single drone, without neighbor encoder, without obstacle encoder.'
                              'single_obst: single drone, without neighbor encoder, with obstacle encoder.'

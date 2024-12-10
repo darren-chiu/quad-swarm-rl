@@ -83,11 +83,9 @@ void networkEvaluate(control_t_n* control_n, float* state_array);
 
 """
 
-headers_evaluation = """#include <random>
-#include <vector>
-#include <iostream>
-#include <algorithm>
-#include <cstring> 
+headers_evaluation = """
+#include "math.h"
+#include "stdlib.h"
 
 typedef struct control_t_n {
 	float thrust_0;
@@ -95,8 +93,6 @@ typedef struct control_t_n {
 	float thrust_2;
 	float thrust_3;
 } control_t_n;
-
-void networkEvaluate(control_t_n* control_n, const float* state_array);
 
 static const int NEIGHBORS = 2;
 static const int NBR_OBS_DIM = 6; 
@@ -428,7 +424,7 @@ LOG_GROUP_STOP(ctrlNN)
 
 single_drone_eval = """
 
-int main(const float *indatav, size_t size, float *outdatav)
+int testNetwork(const float *indatav, size_t size, float *outdatav)
 {
     size_t i;
     control_t_n motorThrusts;
@@ -463,7 +459,7 @@ int main(const float *indatav, size_t size, float *outdatav)
 """
 
 multi_drone_deepset_eval = """
-int main(const float *self_indatav, const float *nbr_indatav, float *outdatav){
+int testNetwork(const float *self_indatav, const float *nbr_indatav, float *outdatav){
     size_t i;
     control_t_n motorThrusts;
 
@@ -480,7 +476,7 @@ int main(const float *self_indatav, const float *nbr_indatav, float *outdatav){
 """
 
 single_drone_obst_eval_1 = """
-int main(const float *self_indatav, const float *obst_indatav, float *obst_outdata, float *outdatav){
+int testNetwork(const float *self_indatav, const float *obst_indatav, float *obst_outdata, float *outdatav){
     size_t i;
     control_t_n motorThrusts;
 
@@ -503,9 +499,8 @@ single_drone_obst_eval_2 = """; i++) {
 
 multi_drone_attn_eval = """
 
-int main(const float *self_indatav, const float *nbr_indatav, float *obst_indatav, float *nbr_outdata, float *obst_outdata, float *token1_out, float *token2_out, float *outdatav)
+int testNetwork(const float *self_indatav, const float *nbr_indatav, float *obst_indatav, float *nbr_outdata, float *obst_outdata, float *token1_out, float *token2_out, float *outdatav)
 {
-    size_t i;
     control_t_n motorThrusts;
 
     obstacleEmbedder(obst_indatav); 
@@ -526,7 +521,7 @@ int main(const float *self_indatav, const float *nbr_indatav, float *obst_indata
     outdatav[2] = motorThrusts.thrust_2;
     outdatav[3] = motorThrusts.thrust_3;
     
-    return EXIT_SUCCESS; 
+    return 0; 
 }
 
 """

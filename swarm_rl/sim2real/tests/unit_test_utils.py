@@ -2,6 +2,7 @@ import ctypes
 import os
 import subprocess
 from pathlib import Path
+from tqdm import tqdm
 
 import numpy as np
 import torch
@@ -72,10 +73,10 @@ def compare_torch_to_c_model_outputs_single_obst(args):
             final_c_model_name = f'{c_base_name}_{c_model_name}{c_extension}'
             c_model_dir = Path(args.output_dir).joinpath(args.model_type, model_dir.parts[1], model_dir.parts[2])
             c_model_path = c_model_dir.joinpath(final_c_model_name)
-            shared_lib_path = c_model_dir.joinpath(f'single_obst_{c_model_name}.so')
+            shared_lib_path = c_model_dir.joinpath(f'network_evaluate_{c_model_name}.so')
 
             subprocess.run(
-                ['g++', '-fPIC', '-shared', '-o', str(shared_lib_path), str(c_model_path)],
+                ['gcc', '-fPIC', '-shared', '-o', str(shared_lib_path), str(c_model_path)],
                 check=True,
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE
@@ -84,7 +85,7 @@ def compare_torch_to_c_model_outputs_single_obst(args):
             import ctypes
             from numpy.ctypeslib import ndpointer
             lib = ctypes.cdll.LoadLibrary(str(shared_lib_path))
-            func = lib.main
+            func = lib.testNetwork
             func.restype = None
             func.argtypes = [
                 ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
@@ -184,7 +185,7 @@ def compare_torch_to_c_model_multi_drone_attention(args):
     parent_model_dir = Path(args.torch_model_dir)
     sub_model_dir_list = [name for name in os.listdir(parent_model_dir) if
                           os.path.isdir(os.path.join(parent_model_dir, name))]
-    for i in range(len(sub_model_dir_list)):
+    for i in tqdm(range(len(sub_model_dir_list))):
 
         model_dir = parent_model_dir.joinpath(sub_model_dir_list[i])
 
@@ -197,8 +198,9 @@ def compare_torch_to_c_model_multi_drone_attention(args):
             c_model_path = c_model_dir.joinpath(final_c_model_name)
             shared_lib_path = c_model_dir.joinpath(f'network_evaluate_{c_model_name}.so')
             
-            print('Testing: ', c_model_path)
-
+            # print('Testing C Model: ', c_model_path)
+            # print('Testing Torch Model: ', model_dir)
+            # print(torch_model.actor_encoder.obstacle_embed_layer[0].weight)
             subprocess.run(
                 ['gcc', '-fPIC', str(c_model_path), '-shared', '-o', str(shared_lib_path)],
                 check=True,
@@ -237,7 +239,7 @@ def compare_torch_to_c_model_multi_drone_attention(args):
     # model, cfg = load_sf_model(Path(torch_model_dir), model_type='attention')
 
     # test 1000 times on different random inputs
-            for _ in range(1000):
+            for _ in tqdm(range(1000)):
                 # check the neighbor encoder outputs
                 neighbor_obs = torch.randn(12)
                 torch_nbr_out = torch_model.actor_encoder.neighbor_embed_layer(neighbor_obs).detach().numpy()
@@ -269,8 +271,10 @@ def compare_torch_to_c_model_multi_drone_attention(args):
                 func(self_indata, nbr_indata, obst_indata, nbr_outdata, obst_outdata, token1_out, token2_out, thrust_out)
 
                 tokens = np.vstack((token1_out, token2_out))
-                print("Neighbor Embedding Output: " , torch_nbr_out, nbr_outdata)
-                print("Thrust Output: ", torch_thrust_out, thrust_out)
+                # print("Neighbor Embedding Output: " , torch_nbr_out, nbr_outdata)
+                # print("Obstacle Embedding Output: " , torch_obstacle_out, obst_outdata)
+                # print("Thrust Output: ", torch_thrust_out, thrust_out)
+
                 tolerance = 1e-6
                 assert np.allclose(torch_obstacle_out, obst_outdata, atol=tolerance)
                 assert np.allclose(torch_nbr_out, nbr_outdata, atol=tolerance)

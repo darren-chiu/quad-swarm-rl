@@ -42,6 +42,24 @@ def load_sf_model(model_dir, model_type):
     args.quads_obst_noise = 0.0
     args.quads_obst_grid_size = 1.0
     args.quads_render_mode = 'human'
+    args.quads_enable_sbc = False
+    args.quads_neighbor_range = 2.0
+    args.quads_obst_range = 2.0
+    args.quads_sbc_obst_range = 2.0
+    args.quads_sbc_obst_agg = 2.0
+    args.quads_coeff_omega = 0.0
+    args.quads_coeff_spin = 0.0
+    args.quads_coeff_effort = 0.0
+    args.quads_coeff_sbc_acc = 0.0
+    args.quads_coeff_sbc_boundary = 0.0
+    args.quads_obst_collision_prox_weight = 0.0
+    args.quads_obst_collision_prox_max = 0.0
+    args.quads_obst_collision_prox_min = 0.0
+
+    if 'quads_critic_rnn_size' not in args:
+        args.quads_critic_rnn_size = args.rnn_size
+        args.quads_critic_obs = 'octomap'
+        args.quads_z_overlap = False
 
     # Load model
     register_swarm_components()
