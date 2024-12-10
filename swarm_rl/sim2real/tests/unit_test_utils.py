@@ -36,7 +36,7 @@ def compare_torch_to_c_model_outputs_single_drone(args):
             c_model_path = c_model_dir.joinpath(final_c_model_name)
             shared_lib_path = c_model_dir.joinpath(f'single_{c_model_name}.so')
             subprocess.run(
-                ['g++', '-fPIC', '-shared', '-o', str(shared_lib_path), str(c_model_path)],
+                ['gcc', '-fPIC', '-shared', '-o', str(shared_lib_path), str(c_model_path)],
                 check=True,
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE
@@ -135,7 +135,7 @@ def compare_torch_to_c_model_multi_drone_deepset(args):
             shared_lib_path = c_model_dir.joinpath(f'multi_deepsets_{c_model_name}.so')
 
             subprocess.run(
-                ['g++', '-fPIC', '-shared', '-o', str(shared_lib_path), str(c_model_path)],
+                ['gcc', '-fPIC', '-shared', '-o', str(shared_lib_path), str(c_model_path)],
                 check=True,
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE
@@ -197,26 +197,13 @@ def compare_torch_to_c_model_multi_drone_attention(args):
             c_model_dir = Path(args.output_dir).joinpath(args.model_type, model_dir.parts[1], model_dir.parts[2])
             c_model_path = c_model_dir.joinpath(final_c_model_name)
             shared_lib_path = c_model_dir.joinpath(f'network_evaluate_{c_model_name}.so')
-            
-            # print('Testing C Model: ', c_model_path)
-            # print('Testing Torch Model: ', model_dir)
-            # print(torch_model.actor_encoder.obstacle_embed_layer[0].weight)
+
             subprocess.run(
                 ['gcc', '-fPIC', str(c_model_path), '-shared', '-o', str(shared_lib_path)],
                 check=True,
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE
             )
-            # prepare the c model and main method for evaluation
-            # c_model_dir = Path('swarm_rl/train_dir/c_models/multi_obst_attn/debug_experience_replay_v2_slurm/02_debug_experience_replay_v2_see_6666_q.c.obs_octomap')
-            # c_model_path = c_model_dir.joinpath('network_evaluate_step_1770360832.c')
-            # shared_lib_path = c_model_dir.joinpath('02_debug_experience_replay_v2_see_6666_q.c.obs_octomap.so')
-            # subprocess.run(
-            #     ['g++', '-fPIC', '-shared', '-o', str(shared_lib_path), str(c_model_path)],
-            #     check=True,
-            #     stderr=subprocess.PIPE,
-            #     stdout=subprocess.PIPE
-            # )
 
             import ctypes
             from numpy.ctypeslib import ndpointer
@@ -235,10 +222,7 @@ def compare_torch_to_c_model_multi_drone_attention(args):
                 ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
             ]
 
-    # torch_model_dir = 'swarm_rl/sim2real/torch_models/attention/'
-    # model, cfg = load_sf_model(Path(torch_model_dir), model_type='attention')
-
-    # test 1000 times on different random inputs
+            # test 1000 times on different random inputs
             for _ in tqdm(range(1000)):
                 # check the neighbor encoder outputs
                 neighbor_obs = torch.randn(12)
@@ -271,9 +255,6 @@ def compare_torch_to_c_model_multi_drone_attention(args):
                 func(self_indata, nbr_indata, obst_indata, nbr_outdata, obst_outdata, token1_out, token2_out, thrust_out)
 
                 tokens = np.vstack((token1_out, token2_out))
-                # print("Neighbor Embedding Output: " , torch_nbr_out, nbr_outdata)
-                # print("Obstacle Embedding Output: " , torch_obstacle_out, obst_outdata)
-                # print("Thrust Output: ", torch_thrust_out, thrust_out)
 
                 tolerance = 1e-6
                 assert np.allclose(torch_obstacle_out, obst_outdata, atol=tolerance)
