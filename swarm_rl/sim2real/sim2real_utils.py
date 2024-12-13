@@ -87,12 +87,14 @@ def load_sf_model(model_dir, model_type):
         if not (torch.cuda.is_available()):
             args.device = "cpu"
             device = torch.device("cpu")
+            model.model_to_device(device)
+            model.load_state_dict(torch.load(model_path, map_location=device)['model'])
         else:
             args.device = "cuda"
             device = torch.device("cuda")
+            model.load_state_dict(torch.load(model_path)['model'])
 
-        model.model_to_device(device)
-        model.load_state_dict(torch.load(model_path, map_location=device)['model'])
+
         models.append(model)
 
         # Extract the step number from the model path

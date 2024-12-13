@@ -86,6 +86,7 @@ void networkEvaluate(control_t_n* control_n, float* state_array);
 headers_evaluation = """
 #include "math.h"
 #include "stdlib.h"
+#include "stdint.h"
 
 typedef struct control_t_n {
 	float thrust_0;
