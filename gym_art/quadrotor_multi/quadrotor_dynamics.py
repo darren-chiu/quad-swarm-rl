@@ -367,6 +367,7 @@ class QuadrotorDynamics:
     # goal_pos - global
     def step1(self, thrust_cmds, dt, thrust_noise):
 
+
         if (self.use_ctbr):
             thrust_cmds = self.body_rate_controller_step(thrust_cmds[0], thrust_cmds[1:4])
         

@@ -207,7 +207,6 @@ def compare_torch_to_c_model_multi_drone_attention(args):
 
             import ctypes
             from numpy.ctypeslib import ndpointer
-            # lib = ctypes.cdll.LoadLibrary(str(shared_lib_path))
             lib = ctypes.CDLL(str(shared_lib_path))
             func = lib.testNetwork
             func.restype = None
@@ -247,8 +246,7 @@ def compare_torch_to_c_model_multi_drone_attention(args):
                 self_obs = torch.randn(18)
                 self_indata = self_obs.detach().numpy()
                 obs_dict = {'obs': torch.concat([self_obs, neighbor_obs, obstacle_obs]).view(1, -1)}
-                torch_thrust_out = torch_model.action_parameterization(torch_model.actor_encoder(obs_dict))[
-                    1].means.flatten().detach().numpy()
+                torch_thrust_out = torch_model.action_parameterization(torch_model.actor_encoder(obs_dict))[1].means.flatten().detach().numpy()
 
                 thrust_out = np.zeros(4).astype(np.float32)
 

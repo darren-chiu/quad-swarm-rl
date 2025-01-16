@@ -83,6 +83,8 @@ class MultiObstacles:
                 quads_sdf_obs = np.clip(quads_sdf_obs, a_min=0.0, a_max=self.range_max)
                 self.prev = np.copy(quads_sdf_obs)
                 self.tick = 0
+
+                print(quads_sdf_obs[0])
             else:
                 quads_sdf_obs = np.copy(self.prev)
 

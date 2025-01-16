@@ -603,6 +603,8 @@ class QuadrotorEnvMulti(gym.Env):
             self.no_sol_list[i] += float(info['no_sol_flag']) / self.envs[0].ep_len
 
             self.pos[i, :] = self.envs[i].dynamics.pos
+            print("Position: ", self.envs[0].dynamics.pos)
+            
         # 1. Calculate collisions: 1) between drones 2) with obstacles 3) with room
         # 1) Collisions between drones
         drone_col_matrix, curr_drone_collisions, distance_matrix = \

@@ -5,6 +5,8 @@ _params = ParamGrid(
     [
         ("seed", [0000, 3333, 6666]),
         ("quads_critic_obs", ['octomap']),
+        ("quads_obst_collision_prox_min", [0.05, 0.15, 0.25]), 
+        ("quads_obst_collision_prox_weigh", [0.01, 0.1, 0.2])
     ]
 )
 
